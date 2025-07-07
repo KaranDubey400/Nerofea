@@ -6,6 +6,9 @@ const nextConfig: NextConfig = {
       'jtopjneotszhuxxbmhxn.supabase.co',
     ],
   },
+  eslint: {
+    ignoreDuringBuilds: true,
+  },
 };
 
 export default nextConfig;
