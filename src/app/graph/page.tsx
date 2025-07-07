@@ -16,28 +16,6 @@ export default function GraphPage() {
   useAuthGuard();
   const router = useRouter();
 
-  // Fetch all topics and notes
-  const { topics } = useTopics();
-  const { notes } = useNotes();
-
-  // Handle graph node clicks - show info about clicked node
-  const handleNodeClick = (node: any) => {
-    console.log('Node clicked:', node);
-    // You can add a modal or sidebar here to show node details
-    alert(`Clicked on ${node.type}: ${node.label}`);
-  };
-
-  // Prepare graph data
-  const graphData = {
-    nodes: [
-      ...topics.map((topic) => ({ id: topic.id, label: topic.title, type: 'topic' })),
-      ...notes.map((note) => ({ id: note.id, label: note.title, type: 'note', topic_id: note.topic_id })),
-    ],
-    links: [
-      ...notes.map((note) => ({ source: note.topic_id, target: note.id })),
-    ],
-  };
-
   return (
     <div className="min-h-screen bg-gray-50">
       {/* Header */}
@@ -97,8 +75,8 @@ export default function GraphPage() {
 
       {/* Graph Content */}
       <main className="h-[calc(100vh-80px)] w-full">
-        <div className="h-full w-full bg-white">
-          <div className="bg-white border-b border-gray-200 p-4">
+        <div className="h-full w-full bg-white" onClick={e => e.stopPropagation()}>
+          <div className="bg-white border-b border-gray-200 p-4" onClick={e => e.stopPropagation()}>
             <div className="flex items-center justify-between">
               <div>
                 <h1 className="text-2xl font-bold text-gray-900">Knowledge Graph</h1>
@@ -106,20 +84,10 @@ export default function GraphPage() {
                   Interactive visualization of your topics and notes. Click on nodes to explore!
                 </p>
               </div>
-              <div className="flex items-center gap-2 text-sm text-gray-500">
-                <div className="flex items-center gap-2">
-                  <div className="w-4 h-4 bg-blue-500 rounded-full"></div>
-                  <span>Topics ({topics.length})</span>
-                </div>
-                <div className="flex items-center gap-2">
-                  <div className="w-4 h-4 bg-green-500 rounded-full"></div>
-                  <span>Notes ({notes.length})</span>
-                </div>
-              </div>
             </div>
           </div>
-          <div className="h-[calc(100%-80px)] w-full">
-            <GraphView graphData={graphData} onNodeClick={handleNodeClick} />
+          <div className="h-[calc(100%-80px)] w-full" onClick={e => e.stopPropagation()}>
+            <GraphView />
           </div>
         </div>
       </main>

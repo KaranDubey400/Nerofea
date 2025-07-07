@@ -11,9 +11,9 @@ import { Target, ArrowLeft, Network } from "lucide-react";
 import { useAuthGuard } from '@/hooks/useAuthGuard';
 import TopicsSidebar from "@/components/TopicsSidebar";
 import NotesList from "@/components/NotesList";
-import GraphView from '@/components/GraphView';
 import { useTopics } from '@/hooks/useTopics';
 import { useNotes } from '@/hooks/useNotes';
+import GraphView from "@/components/GraphView";
 
 export default function DashboardPage() {
   const { user, profile, signOut } = useUser();
@@ -21,7 +21,6 @@ export default function DashboardPage() {
   const router = useRouter();
   const [selectedTopicId, setSelectedTopicId] = useState<string | null>(null);
   const [selectedTopicTitle, setSelectedTopicTitle] = useState<string>('');
-  const [showGraphView, setShowGraphView] = useState<boolean>(true); // New state to control graph view
 
   // Fetch all topics
   const { topics } = useTopics();
@@ -31,7 +30,6 @@ export default function DashboardPage() {
   const handleTopicSelect = (topicId: string, topicTitle: string) => {
     setSelectedTopicId(topicId);
     setSelectedTopicTitle(topicTitle);
-    setShowGraphView(false); // Hide graph when topic is selected
   };
 
   // Handle graph node clicks - just log for now, don't change view
@@ -111,53 +109,20 @@ export default function DashboardPage() {
           onTopicSelect={handleTopicSelect}
           selectedTopicId={selectedTopicId}
         />
-        <div className="flex-1 h-full w-full">
-          {selectedTopicId && !showGraphView ? (
-            <div className="h-full w-full">
-              <div className="bg-white border-b border-gray-200 p-4">
-                <Button 
-                  variant="outline" 
-                  onClick={() => {
-                    setSelectedTopicId(null);
-                    setSelectedTopicTitle('');
-                    setShowGraphView(true); // Show graph again
-                  }}
-                  className="flex items-center gap-2"
-                >
-                  <ArrowLeft className="w-4 h-4" />
-                  Back to Graph
-                </Button>
-              </div>
+        <div className="flex-1 h-full w-full flex">
+          <div className="flex-1 h-full">
+            {selectedTopicId ? (
               <NotesList 
                 topicId={selectedTopicId}
                 topicTitle={selectedTopicTitle}
               />
-            </div>
-          ) : showGraphView ? (
-            <div className="h-full w-full">
-              <div className="bg-white border-b border-gray-200 p-4">
-                <div className="flex items-center justify-between">
-                  <div>
-                    <h2 className="text-xl font-semibold text-gray-900">Knowledge Graph</h2>
-                    <p className="text-sm text-gray-600 mt-1">Your topics and notes visualization</p>
-                  </div>
-                  <div className="text-sm text-gray-500">
-                    <span>Topics: {topics.length} | Notes: {notes.length}</span>
-                  </div>
-                </div>
-              </div>
-              <div className="h-[calc(100%-80px)] w-full">
-                <GraphView graphData={graphData} onNodeClick={handleNodeClick} />
-              </div>
-            </div>
-          ) : (
-            <div className="h-full w-full flex items-center justify-center">
-              <div className="text-center">
-                <h2 className="text-xl font-semibold text-gray-900">Welcome to Dashboard</h2>
-                <p className="text-gray-600 mt-2">Select a topic from the sidebar or view the graph</p>
-              </div>
-            </div>
-          )}
+            ) : (
+              <div className="flex items-center justify-center h-full text-gray-400">Select a topic to view notes</div>
+            )}
+          </div>
+          <div className="w-[500px] h-full border-l border-gray-200 bg-white">
+            <GraphView />
+          </div>
         </div>
       </main>
     </div>
