@@ -95,7 +95,7 @@ export default function NoteEditor({ onClose, initialTopicId }: NoteEditorProps)
         setAiResult(response.data?.response || 'No explanation found.');
       }
     } catch (err) {
-      setAiResult('Error: ' + (err?.message || 'Failed to get AI response. Please try again.'));
+      setAiResult('Error: ' + ((err as any)?.message || 'Failed to get AI response. Please try again.'));
     } finally {
       setAiLoading(false);
     }
