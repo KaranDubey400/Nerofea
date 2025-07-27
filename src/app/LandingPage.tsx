@@ -132,6 +132,23 @@ export default function LandingPage() {
           </div>
         </div>
       </section>
+      {/* How to Use Section (moved to bottom) */}
+      <section className="py-8 px-4 bg-white/80 border-t border-gray-200 mt-8">
+        <div className="max-w-3xl mx-auto">
+          <h2 className="text-3xl font-bold text-center mb-4 text-blue-700">How to Use?</h2>
+          <ol className="list-decimal list-inside text-lg text-gray-800 space-y-2">
+            <li><b>Login or Signup:</b> First, create your account or log in.</li>
+            <li><b>Add a Topic:</b> Click on "Add Topic" in the sidebar and enter your topic name.</li>
+            <li><b>Write Notes:</b> Click on any topic, then press the "Add Note" button to write your note. You can save and edit your notes anytime.</li>
+            <li><b>Use AI Features:</b> While writing notes, get help from AI – understand concepts, get summaries, or clear any doubts.</li>
+            <li><b>Create a Study Plan:</b> Go to the "Study Plan" section, generate a personalized plan, and follow it.</li>
+            <li><b>Practice Questions:</b> In the "Questions" section, solve DSA questions, use filters, and track your progress.</li>
+            <li><b>Attach Files:</b> You can attach images or files to your notes for better understanding.</li>
+            <li><b>Track Progress:</b> Monitor your progress in study plans and questions, and see your growth over time.</li>
+          </ol>
+          <p className="mt-4 text-center text-blue-600 font-medium">If you have any doubts, just ask the AI! 🚀</p>
+        </div>
+      </section>
     </div>
   );
 } 

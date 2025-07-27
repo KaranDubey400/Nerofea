@@ -1,5 +1,6 @@
 "use client";
-import React, { useState } from "react";
+
+import React, { useEffect, useState } from "react";
 import Image from "next/image";
 import { Button } from "@/components/ui/button";
 import { useUser } from "@/hooks/useUser";
@@ -8,13 +9,41 @@ import { ArrowLeft, Home, Target } from "lucide-react";
 import { FaRobot } from "react-icons/fa";
 import { useAuthGuard } from '@/hooks/useAuthGuard';
 import GraphView from '@/components/GraphView';
-import { useTopics } from '@/hooks/useTopics';
-import { useNotes } from '@/hooks/useNotes';
+import { createClientComponentClient } from '@supabase/auth-helpers-nextjs';
 
 export default function GraphPage() {
-  const { user, profile, signOut } = useUser();
-  useAuthGuard();
+  const [graphData, setGraphData] = useState({ nodes: [], links: [] });
+  const [loading, setLoading] = useState(true);
   const router = useRouter();
+  const { user } = useUser();
+  
+  useAuthGuard();
+  
+  // Fetch graph data client-side
+  useEffect(() => {
+    async function fetchGraphData() {
+      const supabase = createClientComponentClient();
+      
+      try {
+        const [notesRes, linksRes] = await Promise.all([
+          supabase.from('notes').select('id, title'),
+          supabase.from('note_links').select('source_note_id, target_note_id')
+        ]);
+        
+        setGraphData({
+          nodes: notesRes.data || [],
+          links: linksRes.data || []
+        });
+      } catch (error) {
+        console.error('Error fetching graph data:', error);
+        setGraphData({ nodes: [], links: [] });
+      } finally {
+        setLoading(false);
+      }
+    }
+    
+    fetchGraphData();
+  }, []);
 
   return (
     <div className="min-h-screen bg-gray-50">
@@ -23,7 +52,7 @@ export default function GraphPage() {
         <div className="flex items-center gap-3">
           <Button
             variant="outline"
-            onClick={() => router.push("/dashboard")}
+            onClick={() => router.back()}
             className="flex items-center gap-2"
           >
             <ArrowLeft className="w-4 h-4" />
@@ -59,17 +88,6 @@ export default function GraphPage() {
             <Target className="w-4 h-4" />
             Grind
           </Button>
-          <div className="flex items-center gap-2">
-            <span className="font-semibold text-gray-700">{profile?.username}</span>
-            <Image
-              src={profile?.avatar_url || "/neo.png"}
-              alt="Profile"
-              width={32}
-              height={32}
-              className="rounded-full border"
-            />
-          </div>
-          <Button variant="destructive" onClick={signOut}>Sign Out</Button>
         </div>
       </header>
 
@@ -87,7 +105,13 @@ export default function GraphPage() {
             </div>
           </div>
           <div className="h-[calc(100%-80px)] w-full" onClick={e => e.stopPropagation()}>
-            <GraphView />
+            {loading ? (
+              <div className="h-full w-full flex items-center justify-center">
+                <div className="text-gray-500">Loading graph data...</div>
+              </div>
+            ) : (
+              <GraphView initialData={graphData} />
+            )}
           </div>
         </div>
       </main>

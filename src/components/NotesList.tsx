@@ -1,13 +1,16 @@
 "use client";
-import React, { useState, useCallback } from 'react';
-import { useNotes } from '@/hooks/useNotes';
+import React, { useState, useCallback, useEffect } from 'react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Textarea } from '@/components/ui/textarea';
-import { Edit2, Trash2, Save, X, FileText, Bot, MessageSquare, Search, Loader2, Paperclip } from 'lucide-react';
+import { Edit2, Trash2, Save, X, FileText, Bot, MessageSquare, Search, Loader2, Paperclip, Calendar } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
+import { useRouter } from 'next/navigation';
 import { supabase } from '@/supabaseClient';
 import FileAttachments from './FileAttachments';
+import RichNoteEditor from './RichNoteEditor';
+import StudyPlanCard from './StudyPlanCard';
+import { useAppStore } from '@/store/useAppStore';
 import type { Note } from '@/hooks/useNotes';
 
 interface NotesListProps {
@@ -16,13 +19,32 @@ interface NotesListProps {
 }
 
 export default function NotesList({ topicId, topicTitle }: NotesListProps) {
-  const { notes, loading, updateNote, deleteNote } = useNotes(topicId);
+  // Use the app store instead of useNotes hook
+  const {
+    notes,
+    notesLoading: loading,
+    updateNote,
+    deleteNote,
+    fetchNotes,
+    setSelectedTopicId
+  } = useAppStore();
+  
+  // Check if this is the Generated Plans topic
+  const isGeneratedPlansIndex = topicTitle === 'Generated Plans';
+  const router = useRouter();
+  
   const { toast } = useToast();
   const [editingId, setEditingId] = useState<string | null>(null);
   const [editingTitle, setEditingTitle] = useState('');
   const [editingContent, setEditingContent] = useState('');
   const [showAttachments, setShowAttachments] = useState<string | null>(null);
   const [selectedNote, setSelectedNote] = useState<Note | null>(null);
+  
+  // Fetch notes when the component mounts or topicId changes
+  useEffect(() => {
+    setSelectedTopicId(topicId);
+    fetchNotes(topicId);
+  }, [topicId, fetchNotes, setSelectedTopicId]);
 
   // AI Assistant state
   const [showAI, setShowAI] = useState(false);
@@ -47,16 +69,33 @@ export default function NotesList({ topicId, topicTitle }: NotesListProps) {
     if (!editingTitle.trim()) return;
     
     try {
-      await updateNote(id, {
+      // 1. Update the note
+      const updatedNote = await updateNote(id, {
         title: editingTitle.trim(),
         content: editingContent.trim()
       });
+      
+      // 2. Call the edge function to process links
+      if (updatedNote) {
+        try {
+          const { error: functionError } = await supabase.functions.invoke('process-note-links', {
+            body: { note: updatedNote },
+          });
+          
+          if (functionError) {
+            console.error("Failed to process links:", functionError);
+          }
+        } catch (functionErr) {
+          console.error("Error invoking edge function:", functionErr);
+        }
+      }
+      
       setEditingId(null);
       setEditingTitle('');
       setEditingContent('');
       toast({
         title: "Note updated successfully",
-        description: "Your note has been updated.",
+        description: "Your note has been updated and links processed.",
       });
     } catch (error) {
       toast({
@@ -144,17 +183,47 @@ export default function NotesList({ topicId, topicTitle }: NotesListProps) {
 
       {notes.length === 0 ? (
         <div className="text-center py-12">
-          <FileText className="w-16 h-16 mx-auto mb-4 text-gray-300" />
-          <h3 className="text-lg font-semibold text-gray-700 mb-2">No notes yet</h3>
-          <p className="text-gray-500">Click the note icon next to this topic to add your first note</p>
+          {isGeneratedPlansIndex ? (
+            <>
+              <Calendar className="w-16 h-16 mx-auto mb-4 text-purple-300" />
+              <h3 className="text-lg font-semibold text-gray-700 mb-2">No study plans yet</h3>
+              <p className="text-gray-500 mb-4">AI-generated study plans will appear here automatically when you create them</p>
+              <Button
+                onClick={() => router.push('/ai-features')}
+                className="bg-gradient-to-r from-purple-500 to-pink-500 hover:from-purple-600 hover:to-pink-600 text-white"
+              >
+                Generate Study Plan
+              </Button>
+            </>
+          ) : (
+            <>
+              <FileText className="w-16 h-16 mx-auto mb-4 text-gray-300" />
+              <h3 className="text-lg font-semibold text-gray-700 mb-2">No notes yet</h3>
+              <p className="text-gray-500">Click the note icon next to this topic to add your first note</p>
+            </>
+          )}
         </div>
       ) : (
         <div className="space-y-4">
-          {notes.map((note) => (
+          {notes.map((note) => {
+            // Use StudyPlanCard for Generated Plans topic
+            if (isGeneratedPlansIndex) {
+              return (
+                <StudyPlanCard
+                  key={note.id}
+                  note={note}
+                  onEdit={startEditing}
+                  onDelete={handleDeleteNote}
+                  onView={setSelectedNote}
+                />
+              );
+            }
+            
+            // Regular note card for other topics
+            return (
             <div
               key={note.id}
-              className="border border-gray-200 rounded-lg p-4 hover:border-gray-300 transition-colors cursor-pointer"
-              onClick={() => setSelectedNote(note)}
+              className="border border-gray-200 rounded-lg p-4 hover:border-gray-300 transition-colors"
             >
               {editingId === note.id ? (
                 <div className="space-y-3">
@@ -164,11 +233,9 @@ export default function NotesList({ topicId, topicTitle }: NotesListProps) {
                     placeholder="Note title..."
                     className="font-semibold"
                   />
-                  <Textarea
+                  <RichNoteEditor
                     value={editingContent}
-                    onChange={(e) => setEditingContent(e.target.value)}
-                    placeholder="Note content..."
-                    className="min-h-[100px] resize-none"
+                    onChange={setEditingContent}
                   />
                   <div className="flex items-center gap-2">
                     <Button
@@ -225,7 +292,22 @@ export default function NotesList({ topicId, topicTitle }: NotesListProps) {
                     <h3 className="text-lg font-semibold text-gray-900">{note.title}</h3>
                     <div className="flex items-center gap-1">
                       <Button
-                        onClick={() => startEditing(note)}
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          setSelectedNote(note);
+                        }}
+                        size="sm"
+                        variant="outline"
+                        className="h-8 w-8 p-0 border-gray-300 hover:bg-gray-100"
+                        title="View Note"
+                      >
+                        <FileText className="w-4 h-4" />
+                      </Button>
+                      <Button
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          startEditing(note);
+                        }}
                         size="sm"
                         variant="outline"
                         className="h-8 w-8 p-0 border-gray-300 hover:bg-gray-100"
@@ -234,7 +316,10 @@ export default function NotesList({ topicId, topicTitle }: NotesListProps) {
                         <Edit2 className="w-4 h-4" />
                       </Button>
                       <Button
-                        onClick={() => handleDeleteNote(note.id)}
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          handleDeleteNote(note.id);
+                        }}
                         size="sm"
                         variant="outline"
                         className="h-8 w-8 p-0 border-red-300 text-red-500 hover:bg-red-50 hover:border-red-400"
@@ -244,8 +329,12 @@ export default function NotesList({ topicId, topicTitle }: NotesListProps) {
                       </Button>
                     </div>
                   </div>
-                  <div className="text-gray-700 whitespace-pre-wrap">
-                    {note.content || <span className="text-gray-400 italic">No content</span>}
+                  <div
+                    className="text-gray-700 whitespace-pre-wrap cursor-pointer"
+                    onClick={() => setSelectedNote(note)}
+                  >
+                    <div dangerouslySetInnerHTML={{ __html: note.content }} />
+                    {!note.content && <span className="text-gray-400 italic">No content</span>}
                   </div>
                   
                   {/* File Attachments Preview */}
@@ -273,7 +362,8 @@ export default function NotesList({ topicId, topicTitle }: NotesListProps) {
                 </div>
               )}
             </div>
-          ))}
+            );
+          })}
         </div>
       )}
       

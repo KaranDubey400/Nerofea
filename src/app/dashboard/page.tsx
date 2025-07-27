@@ -13,6 +13,7 @@ import TopicsSidebar from "@/components/TopicsSidebar";
 import NotesList from "@/components/NotesList";
 import { useTopics } from '@/hooks/useTopics';
 import { useNotes } from '@/hooks/useNotes';
+import { useAppStore } from '@/store/useAppStore';
 import GraphView from "@/components/GraphView";
 
 export default function DashboardPage() {
@@ -21,11 +22,19 @@ export default function DashboardPage() {
   const router = useRouter();
   const [selectedTopicId, setSelectedTopicId] = useState<string | null>(null);
   const [selectedTopicTitle, setSelectedTopicTitle] = useState<string>('');
+  const { ensureGeneratedPlansTopicExists } = useAppStore();
 
   // Fetch all topics
   const { topics } = useTopics();
   // Fetch all notes (no topicId, so sabhi notes)
   const { notes } = useNotes();
+  
+  // Initialize Generated Plans topic on component mount
+  React.useEffect(() => {
+    if (user) {
+      ensureGeneratedPlansTopicExists();
+    }
+  }, [user, ensureGeneratedPlansTopicExists]);
 
   const handleTopicSelect = (topicId: string, topicTitle: string) => {
     setSelectedTopicId(topicId);
@@ -117,7 +126,11 @@ export default function DashboardPage() {
                 topicTitle={selectedTopicTitle}
               />
             ) : (
-              <div className="flex items-center justify-center h-full text-gray-400">Select a topic to view notes</div>
+              <div className="p-6">
+                <div className="mb-6 flex items-center justify-center h-32 text-gray-400 border-2 border-dashed border-gray-300 rounded-lg">
+                  Select a topic to view notes
+                </div>
+              </div>
             )}
           </div>
           <div className="w-[500px] h-full border-l border-gray-200 bg-white">

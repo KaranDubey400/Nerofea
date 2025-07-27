@@ -1,15 +1,14 @@
 "use client";
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Textarea } from '@/components/ui/textarea';
 import { Select } from '@/components/ui/select';
-import { useTopics } from '@/hooks/useTopics';
-import { useNotes } from '@/hooks/useNotes';
 import { useToast } from '@/hooks/use-toast';
 import { Save, X, Bot, MessageSquare, Search, Loader2 } from 'lucide-react';
 import { supabase } from '@/supabaseClient';
 import RichNoteEditor from './RichNoteEditor';
+import { useAppStore } from '@/store/useAppStore';
 
 interface NoteEditorProps {
   onClose: () => void;
@@ -17,14 +16,18 @@ interface NoteEditorProps {
 }
 
 export default function NoteEditor({ onClose, initialTopicId }: NoteEditorProps) {
-  const { topics } = useTopics();
-  const { addNote } = useNotes();
+  const { topics, addNote, fetchTopics } = useAppStore();
   const { toast } = useToast();
   
   const [title, setTitle] = useState('');
   const [content, setContent] = useState('<p></p>');
   const [selectedTopicId, setSelectedTopicId] = useState(initialTopicId || '');
   const [saving, setSaving] = useState(false);
+  
+  // Fetch topics when component mounts
+  useEffect(() => {
+    fetchTopics();
+  }, [fetchTopics]);
 
   // Grind-style AI states
   const [showAIAssistant, setShowAIAssistant] = useState(false);
@@ -54,12 +57,19 @@ export default function NoteEditor({ onClose, initialTopicId }: NoteEditorProps)
 
     try {
       setSaving(true);
-      await addNote(selectedTopicId, title.trim(), content.trim());
-      toast({
-        title: "Note saved successfully",
-        description: "Your note has been created.",
-      });
-      onClose();
+      
+      // Save the note using the store (which handles link processing internally)
+      const savedNote = await addNote(selectedTopicId, title.trim(), content.trim());
+      
+      if (savedNote) {
+        toast({
+          title: "Note saved successfully",
+          description: "Your note has been created and links processed.",
+        });
+        onClose();
+      } else {
+        throw new Error("Failed to save note");
+      }
     } catch (error) {
       toast({
         title: "Error",
@@ -101,9 +111,27 @@ export default function NoteEditor({ onClose, initialTopicId }: NoteEditorProps)
     }
   };
 
+  // Prevent closing when clicking inside the modal
+  const handleModalClick = (e: React.MouseEvent) => {
+    e.stopPropagation();
+  };
+
   return (
-    <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
-      <div className="bg-white rounded-lg shadow-xl w-full max-w-2xl mx-4 max-h-[90vh] flex flex-col">
+    <div
+      className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50"
+      onClick={(e) => {
+        // Prevent the modal from closing when clicking inside
+        // Only close if clicking directly on the backdrop
+        if (e.target === e.currentTarget) {
+          // Do nothing, prevent closing
+          e.stopPropagation();
+        }
+      }}
+    >
+      <div
+        className="bg-white rounded-lg shadow-xl w-full max-w-2xl mx-4 max-h-[90vh] flex flex-col"
+        onClick={handleModalClick}
+      >
         {/* Header */}
         <div className="flex items-center justify-between p-4 border-b border-gray-200">
           <h2 className="text-lg font-semibold text-gray-900">Create New Note</h2>

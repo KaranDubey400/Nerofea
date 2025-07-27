@@ -7,7 +7,7 @@ import { Textarea } from '@/components/ui/textarea';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { supabase } from '@/supabaseClient';
-import { useSupabaseNotes } from '@/hooks/useSupabaseNotes';
+import { useAppStore } from '@/store/useAppStore';
 import { Loader2, Calendar, Target, Clock } from 'lucide-react';
 
 interface StudyPlanGeneratorProps {
@@ -22,7 +22,7 @@ export const StudyPlanGenerator: React.FC<StudyPlanGeneratorProps> = ({ onPlanSa
   const [loading, setLoading] = useState(false);
   const [generatedPlan, setGeneratedPlan] = useState('');
   const [notification, setNotification] = useState<{ type: 'success' | 'error'; message: string } | null>(null);
-  const { createAINote } = useSupabaseNotes();
+  const { addNote, ensureGeneratedPlansTopicExists } = useAppStore();
 
   // Safe hydration for Next.js
   useEffect(() => {
@@ -408,19 +408,50 @@ Good luck with your ${topic} learning journey! 🚀`;
   const savePlan = useCallback(async () => {
     if (!generatedPlan.trim()) return;
 
-    const title = `${duration}-Day ${level.charAt(0).toUpperCase() + level.slice(1)} Study Plan: ${topic}`;
-    
-    await createAINote(
-      title,
-      generatedPlan,
-      'Study Plans',
-      'study-plan-generator'
-    );
+    try {
+      // Ensure Generated Plans topic exists
+      const generatedPlansIndex = await ensureGeneratedPlansTopicExists();
+      if (!generatedPlansIndex) {
+        throw new Error('Failed to create or find Generated Plans topic');
+      }
 
-    setNotification({ type: 'success', message: 'Study plan saved to your notes!' });
-    setTimeout(() => setNotification(null), 3000);
-    onPlanSaved();
-  }, [generatedPlan, duration, level, topic, createAINote, onPlanSaved]);
+      const title = `${duration}-Day ${level.charAt(0).toUpperCase() + level.slice(1)} Study Plan: ${topic}`;
+      
+      // Convert plain text to HTML with proper formatting
+      const formattedContent = generatedPlan
+        .split('\n')
+        .map(line => {
+          if (line.startsWith('# ')) {
+            return `<h1>${line.replace('# ', '')}</h1>`;
+          } else if (line.startsWith('## ')) {
+            return `<h2>${line.replace('## ', '')}</h2>`;
+          } else if (line.startsWith('### ')) {
+            return `<h3>${line.replace('### ', '')}</h3>`;
+          } else if (line.startsWith('**') && line.endsWith('**')) {
+            return `<strong>${line.replace(/\*\*/g, '')}</strong>`;
+          } else if (line.startsWith('- ')) {
+            return `<li>${line.replace('- ', '')}</li>`;
+          } else if (line.trim() === '---') {
+            return '<hr>';
+          } else if (line.trim() === '') {
+            return '<br>';
+          } else {
+            return `<p>${line}</p>`;
+          }
+        })
+        .join('');
+      
+      await addNote(generatedPlansIndex.id, title, formattedContent);
+
+      setNotification({ type: 'success', message: 'Study plan saved to Generated Plans!' });
+      setTimeout(() => setNotification(null), 3000);
+      onPlanSaved();
+    } catch (error) {
+      console.error('Error saving plan:', error);
+      setNotification({ type: 'error', message: 'Failed to save study plan. Please try again.' });
+      setTimeout(() => setNotification(null), 3000);
+    }
+  }, [generatedPlan, duration, level, topic, addNote, ensureGeneratedPlansTopicExists, onPlanSaved]);
 
   // Don't render anything until mounted to prevent hydration issues
   if (!mounted) {

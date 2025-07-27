@@ -1,9 +1,9 @@
 "use client";
-import React, { useState } from 'react';
-import { useTopics } from '@/hooks/useTopics';
+import React, { useState, useEffect } from 'react';
+import { useAppStore } from '@/store/useAppStore';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
-import { Plus, Edit2, Trash2, X, Check, FileText, Folder } from 'lucide-react';
+import { Plus, Edit2, Trash2, X, Check, FileText, Folder, Calendar } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
 import NoteEditor from './NoteEditor';
 
@@ -13,7 +13,16 @@ interface TopicsSidebarProps {
 }
 
 export default function TopicsSidebar({ onTopicSelect, selectedTopicId }: TopicsSidebarProps) {
-  const { topics, loading, addTopic, updateTopic, deleteTopic } = useTopics();
+  const { 
+    topics, 
+    topicsLoading: loading, 
+    addTopic, 
+    updateTopic, 
+    deleteTopic,
+    fetchTopics,
+    ensureGeneratedPlansTopicExists
+  } = useAppStore();
+  
   const { toast } = useToast();
   const [newTopicTitle, setNewTopicTitle] = useState('');
   const [editingId, setEditingId] = useState<string | null>(null);
@@ -21,18 +30,43 @@ export default function TopicsSidebar({ onTopicSelect, selectedTopicId }: Topics
   const [showAddForm, setShowAddForm] = useState(false);
   const [showNoteEditor, setShowNoteEditor] = useState(false);
 
+  // Fetch topics when component mounts and ensure Generated Plans topic exists
+  useEffect(() => {
+    const initializeTopics = async () => {
+      await fetchTopics();
+      // Auto-create Generated Plans topic if it doesn't exist
+      await ensureGeneratedPlansTopicExists();
+    };
+    
+    initializeTopics();
+  }, [fetchTopics, ensureGeneratedPlansTopicExists]);
+
   const handleAddTopic = async () => {
     if (!newTopicTitle.trim()) return;
     
+    console.log('Attempting to add topic:', newTopicTitle.trim());
+    
     try {
-      await addTopic(newTopicTitle.trim());
-      setNewTopicTitle('');
-      setShowAddForm(false);
-      toast({
-        title: "Topic added successfully",
-        description: "Your new topic has been created.",
-      });
+      const result = await addTopic(newTopicTitle.trim());
+      
+      if (result) {
+        console.log('Topic added successfully:', result);
+        setNewTopicTitle('');
+        setShowAddForm(false);
+        toast({
+          title: "Topic added successfully",
+          description: "Your new topic has been created.",
+        });
+      } else {
+        console.error('addTopic returned null');
+        toast({
+          title: "Error",
+          description: "Failed to add topic. Please check console for details.",
+          variant: "destructive",
+        });
+      }
     } catch (error) {
+      console.error('Error in handleAddTopic:', error);
       toast({
         title: "Error",
         description: "Failed to add topic. Please try again.",
@@ -97,14 +131,38 @@ export default function TopicsSidebar({ onTopicSelect, selectedTopicId }: Topics
 
   if (loading) {
     return (
-      <div className="w-64 bg-white border-r border-gray-200 p-4">
-        <div className="animate-pulse">
-          <div className="h-8 bg-gray-200 rounded mb-4"></div>
-          <div className="space-y-2">
-            {[1, 2, 3].map((i) => (
-              <div key={i} className="h-6 bg-gray-200 rounded"></div>
-            ))}
+      <div className="w-64 bg-gray-50 border-r border-gray-200 flex flex-col h-full">
+        {/* Header Skeleton */}
+        <div className="p-4 border-b border-gray-200 bg-white flex items-center justify-between">
+          <div className="h-6 w-24 bg-gray-200 rounded animate-pulse" />
+          <div className="h-8 w-8 bg-blue-100 border border-blue-200 rounded flex items-center justify-center animate-pulse">
+            <div className="h-4 w-4 bg-blue-200 rounded" />
           </div>
+        </div>
+
+        {/* Add Topic Button Skeleton */}
+        <div className="p-4 bg-white border-b border-gray-200">
+          <div className="w-full h-10 bg-gray-200 rounded flex items-center gap-2 animate-pulse">
+            <div className="h-5 w-5 bg-gray-300 rounded ml-3" />
+            <div className="h-4 w-20 bg-gray-300 rounded ml-2" />
+          </div>
+        </div>
+
+        {/* Topics List Skeleton */}
+        <div className="space-y-2 p-2">
+          {[1, 2].map((i) => (
+            <div
+              key={i}
+              className="flex items-center justify-between p-3 rounded-lg border border-gray-200 bg-white animate-pulse"
+            >
+              <span className="flex-1">
+                <div className="h-4 w-24 bg-gray-200 rounded" />
+              </span>
+              <div className="flex items-center gap-1 ml-2">
+                <div className="h-5 w-5 bg-yellow-100 rounded border border-yellow-200" />
+              </div>
+            </div>
+          ))}
         </div>
       </div>
     );
@@ -119,10 +177,11 @@ export default function TopicsSidebar({ onTopicSelect, selectedTopicId }: Topics
           onClick={handleOpenNoteEditor}
           size="sm"
           variant="outline"
-          className="ml-2 border-blue-300 text-blue-500 hover:bg-blue-50 hover:border-blue-400"
+          className="ml-2 border-blue-300 text-blue-500 hover:bg-blue-50 hover:border-blue-400 flex items-center gap-2"
           title="Add Note"
         >
           <FileText className="w-4 h-4" />
+          <span className="hidden md:inline">Create New Note</span>
         </Button>
       </div>
 
@@ -216,27 +275,33 @@ export default function TopicsSidebar({ onTopicSelect, selectedTopicId }: Topics
                     {topic.title}
                   </span>
                   <div className="flex items-center gap-1">
-                    <Folder className="w-4 h-4 text-yellow-500 opacity-80" />
-                    <div className="opacity-0 group-hover:opacity-100 transition-opacity flex items-center gap-1">
-                      <Button
-                        onClick={(e) => { e.stopPropagation(); startEditing(topic); }}
-                        size="sm"
-                        variant="outline"
-                        className="h-7 w-7 p-0 border-gray-300 hover:bg-gray-100"
-                        title="Edit Topic"
-                      >
-                        <Edit2 className="w-3 h-3" />
-                      </Button>
-                      <Button
-                        onClick={(e) => { e.stopPropagation(); handleDeleteTopic(topic.id); }}
-                        size="sm"
-                        variant="outline"
-                        className="h-7 w-7 p-0 border-red-300 text-red-500 hover:bg-red-50 hover:border-red-400"
-                        title="Delete Topic"
-                      >
-                        <Trash2 className="w-3 h-3" />
-                      </Button>
-                    </div>
+                    {topic.title === 'Generated Plans' ? (
+                      <Calendar className="w-4 h-4 text-purple-500 opacity-80" />
+                    ) : (
+                      <Folder className="w-4 h-4 text-yellow-500 opacity-80" />
+                    )}
+                    {topic.title !== 'Generated Plans' && (
+                      <div className="opacity-0 group-hover:opacity-100 transition-opacity flex items-center gap-1">
+                        <Button
+                          onClick={(e) => { e.stopPropagation(); startEditing(topic); }}
+                          size="sm"
+                          variant="outline"
+                          className="h-7 w-7 p-0 border-gray-300 hover:bg-gray-100"
+                          title="Edit Topic"
+                        >
+                          <Edit2 className="w-3 h-3" />
+                        </Button>
+                        <Button
+                          onClick={(e) => { e.stopPropagation(); handleDeleteTopic(topic.id); }}
+                          size="sm"
+                          variant="outline"
+                          className="h-7 w-7 p-0 border-red-300 text-red-500 hover:bg-red-50 hover:border-red-400"
+                          title="Delete Topic"
+                        >
+                          <Trash2 className="w-3 h-3" />
+                        </Button>
+                      </div>
+                    )}
                   </div>
                 </>
               )}
