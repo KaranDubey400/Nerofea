@@ -11,8 +11,26 @@ import { useAuthGuard } from '@/hooks/useAuthGuard';
 import GraphView from '@/components/GraphView';
 import { createClientComponentClient } from '@supabase/auth-helpers-nextjs';
 
+// Define types for our graph data
+interface GraphNode {
+  id: string;
+  name: string;
+  [key: string]: any;
+}
+
+interface GraphLink {
+  source: string;
+  target: string;
+  [key: string]: any;
+}
+
+interface GraphData {
+  nodes: GraphNode[];
+  links: GraphLink[];
+}
+
 export default function GraphPage() {
-  const [graphData, setGraphData] = useState({ nodes: [], links: [] });
+  const [graphData, setGraphData] = useState<GraphData>({ nodes: [], links: [] });
   const [loading, setLoading] = useState(true);
   const router = useRouter();
   const { user } = useUser();
@@ -30,9 +48,20 @@ export default function GraphPage() {
           supabase.from('note_links').select('source_note_id, target_note_id')
         ]);
         
+        // Transform the data to match the expected GraphData format
+        const nodes: GraphNode[] = (notesRes.data || []).map((note: any) => ({
+          id: note.id,
+          name: note.title
+        }));
+        
+        const links: GraphLink[] = (linksRes.data || []).map((link: any) => ({
+          source: link.source_note_id,
+          target: link.target_note_id
+        }));
+        
         setGraphData({
-          nodes: notesRes.data || [],
-          links: linksRes.data || []
+          nodes,
+          links
         });
       } catch (error) {
         console.error('Error fetching graph data:', error);
