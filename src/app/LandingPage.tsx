@@ -49,6 +49,10 @@ export default function LandingPage() {
       {/* Hero Section */}
       <section className="py-20 px-4">
         <div className="max-w-4xl mx-auto text-center">
+          <div className="flex items-center justify-center mx-auto mb-8 gap-4 px-6 py-3 border border-gray-200 rounded-lg bg-white shadow-sm w-fit">
+            <Image src="/neo.png" alt="Nerofea Logo" width={64} height={64} className="rounded-lg" />
+            <span className="text-3xl font-bold text-gray-900">Nerofea</span>
+          </div>
           <h1 className="text-5xl md:text-6xl font-bold text-gray-900 mb-6 leading-tight">
             Supercharge Your Notes
           </h1>
